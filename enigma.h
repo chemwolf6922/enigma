@@ -14,6 +14,7 @@ typedef struct{
 
 typedef struct{
     uint8_t key_map[26];
+    uint8_t key_map_reverse[26];
     uint8_t turn_over_key;
     uint8_t offset;
 }rotor_t;
@@ -33,10 +34,12 @@ typedef struct{
 int init_enigma(enigma_t* enigma);
 int set_enigma_key(char* rotor_positions,
                     char* plug_board_config);
-int set_enigma_key_direct(uint8_t* rotor_positions,
-                            wire_t** plug_board_config,
+int set_enigma_key_direct(enigma_t* enigma,
+                            uint8_t* selected_rotors,
+                            uint8_t* rotor_positions,
+                            wire_t* plug_board_config,
                             int plug_board_config_len);
-int enigma_encrypt_decrypt(char* content);
-int enigma_encrypt_decrypt_direct(uint8_t* content_code,int len);
+int enigma_encrypt_decrypt(enigma_t* enigma,char* content);
+int enigma_encrypt_decrypt_direct(enigma_t* enigma,uint8_t* content_code,int len);
 
 #endif
