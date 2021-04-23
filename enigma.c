@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <malloc.h>
 
-static uint8_t offset_lu[26 * 26];
+uint32_t offset_lu[26 * 26];
 
 void dump_num(void *src, int len)
 {
@@ -67,7 +67,7 @@ int init_offset_lu(void)
     memset(offset_lu, 0, sizeof(offset_lu));
     for (int i = 0; i != 26; i++)
     {
-        offset_lu[i * 26] = ((i + 1) * 26) % 676;
+        offset_lu[i * 26] = (i * 26 + 26) % 676;
     }
 }
 
