@@ -1,8 +1,9 @@
 #include "enigma.h"
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
 
-// #define SHOW_STEPS
+static uint8_t offset_lu[26 * 26];
 
 void dump_num(void *src, int len)
 {
@@ -19,12 +20,22 @@ int init_rotor(rotor_t *rotor, char *wiring, char turn_over_key)
     {
         return -1;
     }
-    rotor->offset = 0;
-    rotor->turn_over_key = turn_over_key - 'A';
+    rotor->buf_offset = 0;
+    rotor->turn_over_key_buf = (turn_over_key - 'A') * 26;
     for (int i = 0; i != 26; i++)
     {
         rotor->key_map[i] = wiring[i] - 'A';
         rotor->key_map_reverse[rotor->key_map[i]] = i;
+    }
+    // offset
+    for (int i = 0; i != 26; i++)
+    {
+        // input
+        for (int j = 0; j != 26; j++)
+        {
+            rotor->key_map_buf[i * 26 + j] = (rotor->key_map[(j + i) % 26] + 26 - i) % 26;
+            rotor->key_map_reverse_buf[i * 26 + j] = (rotor->key_map_reverse[(j + i) % 26] + 26 - i) % 26;
+        }
     }
     return 0;
 }
@@ -51,6 +62,15 @@ int init_reflector(reflector_t *reflector, char *mapping)
     return 0;
 }
 
+int init_offset_lu(void)
+{
+    memset(offset_lu, 0, sizeof(offset_lu));
+    for (int i = 0; i != 26; i++)
+    {
+        offset_lu[i * 26] = ((i + 1) * 26) % 676;
+    }
+}
+
 int init_enigma(enigma_t *enigma)
 {
     char *rotor_wirings[5] = {
@@ -68,6 +88,7 @@ int init_enigma(enigma_t *enigma)
     }
     init_plug_board(&enigma->plug_board);
     init_reflector(&enigma->reflector, reflector_wiring);
+    init_offset_lu();
 }
 
 int set_plug_board(plug_board_t *plug_board, wire_t *wires, int num_wire)
@@ -125,71 +146,102 @@ int set_enigma_key_direct(enigma_t *enigma,
         {
             return -1;
         }
-        enigma->rotors[enigma->selected_rotor_num[i]].offset = rotor_positions[i];
+        enigma->rotors[enigma->selected_rotor_num[i]].buf_offset = rotor_positions[i] * 26;
     }
     int ret = set_plug_board(&enigma->plug_board, plug_board_config, plug_board_config_len);
     return ret;
 }
 
-int enigma_encrypt_decrypt_direct(enigma_t *enigma, uint8_t *content_code, int len)
+int set_enigma_key(enigma_t *enigma,
+                   char *selected_rotors,
+                   char *rotor_positions,
+                   char *plug_board_config)
+{
+    if (selected_rotors == NULL || rotor_positions == NULL || plug_board_config == NULL)
+    {
+        return -1;
+    }
+    if (strlen(selected_rotors) != 3 || strlen(rotor_positions) != 3)
+    {
+        return -1;
+    }
+    if (((strlen(plug_board_config) + 1) % 3) != 0 && strlen(plug_board_config) != 0)
+    {
+        return -1;
+    }
+    uint8_t rotor_nums[3];
+    for (int i = 0; i != 3; i++)
+    {
+        rotor_nums[i] = selected_rotors[i] - '1'; // '1' -> 0
+    }
+    uint8_t rotor_pos[3];
+    for (int i = 0; i != 3; i++)
+    {
+        rotor_pos[i] = rotor_positions[i] - 'A'; // 'A' -> 0
+    }
+    int num_of_wires = (strlen(plug_board_config) + 1) / 3;
+    int ret = 0;
+    if (num_of_wires > 0)
+    {
+        wire_t *wires = (wire_t *)malloc(sizeof(wire_t) * num_of_wires);
+        if (wires == NULL)
+        {
+            return -1;
+        }
+        for (int i = 0; i != num_of_wires; i++)
+        {
+            wires[i].key_A = plug_board_config[i * 3] - 'A';
+            wires[i].key_B = plug_board_config[i * 3 + 1] - 'A';
+        }
+        ret = set_enigma_key_direct(enigma, rotor_nums, rotor_pos, wires, num_of_wires);
+        free(wires);
+    }
+    else
+    {
+        ret = set_enigma_key_direct(enigma, rotor_nums, rotor_pos, NULL, 0);
+    }
+    return ret;
+}
+
+void enigma_encrypt_decrypt_direct(enigma_t *enigma, uint8_t *content_code, int len)
 {
     rotor_t *rotor[3];
+    // select rotors
     for (int i = 0; i != 3; i++)
     {
         rotor[i] = &enigma->rotors[enigma->selected_rotor_num[i]];
     }
     for (int i = 0; i != len; i++)
     {
-        // spin rotors, start from the right most one (the third one)
-        for (int j = 2; j >= 0; j--)
+        // spin rotors, start from the right most one
+        rotor[2]->buf_offset = offset_lu[rotor[2]->buf_offset];
+        if (rotor[2]->buf_offset == rotor[2]->turn_over_key_buf)
         {
-            rotor[j]->offset = (rotor[j]->offset + 1) % 26;
-            if (rotor[j]->offset != rotor[j]->turn_over_key)
+            rotor[1]->buf_offset = offset_lu[rotor[1]->buf_offset];
+            if (rotor[1]->buf_offset == rotor[1]->turn_over_key_buf)
             {
-                break;
+                rotor[0]->buf_offset = offset_lu[rotor[0]->buf_offset];
             }
         }
-        // calculate cipher text
+        // load value
         uint8_t src = content_code[i];
-#ifdef SHOW_STEPS
-        int scramble_step = 0;
-        printf("%d: %02d %c\n", scramble_step++, src, (char)(src + 'A'));
-#endif
-        if (src > 26)
-        {
-            return -1;
-        }
+        // plug board
         src = enigma->plug_board.key_map[src];
-#ifdef SHOW_STEPS
-        printf("%d: %02d %c\n", scramble_step++, src, (char)(src + 'A'));
-#endif
         // rotors, start from the right most one
-        for (int j = 2; j >= 0; j--)
-        {
-            src = (src + rotor[j]->offset) % 26;
-            src = rotor[j]->key_map[src];
-            src = (src + 26 - rotor[j]->offset) % 26;
-#ifdef SHOW_STEPS
-            printf("%d: %02d %c\n", scramble_step++, src, (char)(src + 'A'));
-#endif
-        }
+        src = rotor[2]->key_map_buf[src + rotor[2]->buf_offset];
+        src = rotor[1]->key_map_buf[src + rotor[1]->buf_offset];
+        src = rotor[0]->key_map_buf[src + rotor[0]->buf_offset];
+        // reflector
         src = enigma->reflector.key_map[src];
-        for (int j = 0; j < 3; j++)
-        {
-            src = (src + rotor[j]->offset) % 26;
-            src = rotor[j]->key_map_reverse[src];
-            src = (src + 26 - rotor[j]->offset) % 26;
-#ifdef SHOW_STEPS
-            printf("%d: %02d %c\n", scramble_step++, src, (char)(src + 'A'));
-#endif
-        }
+        // reverse rotors, start form the left most one
+        src = rotor[0]->key_map_reverse_buf[src + rotor[0]->buf_offset];
+        src = rotor[1]->key_map_reverse_buf[src + rotor[1]->buf_offset];
+        src = rotor[2]->key_map_reverse_buf[src + rotor[2]->buf_offset];
+        // plug board
         src = enigma->plug_board.key_map[src];
-#ifdef SHOW_STEPS
-        printf("%d: %02d %c\n", scramble_step++, src, (char)(src + 'A'));
-#endif
+        // store value
         content_code[i] = src;
     }
-    return 0;
 }
 
 int enigma_encrypt_decrypt(enigma_t *enigma, char *content)
@@ -198,11 +250,15 @@ int enigma_encrypt_decrypt(enigma_t *enigma, char *content)
     for (int i = 0; i != len; i++)
     {
         content[i] -= 'A';
+        if (content[i] >= 26)
+        {
+            return -1;
+        }
     }
-    int ret = enigma_encrypt_decrypt_direct(enigma, (uint8_t *)content, len);
+    enigma_encrypt_decrypt_direct(enigma, (uint8_t *)content, len);
     for (int i = 0; i != len; i++)
     {
         content[i] += 'A';
     }
-    return ret;
+    return 0;
 }

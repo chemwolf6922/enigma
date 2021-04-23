@@ -1,21 +1,45 @@
 #include "enigma.h"
 #include <stdio.h>
+#include <malloc.h>
+#include <string.h>
+#include <sys/time.h>
 
-int main(int argc,void* argv)
+const char origin_text[] = "THEENIGMAMACHINEISACIPHERDEVICEDEVELOPEDANDUSEDINTHEEARLYTOMIDTHCENTURYTOPROTECTCOMMERCIALDIPLOMATICANDMILITARYCOMMUNICATIONITWASEMPLOYEDEXTENSIVELYBYNAZIGERMANYDURINGWORLDWARIIINALLBRANCHESOFTHEGERMANMILITARYTHEGERMANSBELIEVEDERRONEOUSLYTHATUSEOFTHEENIGMAMACHINEENABLEDTHEMTOCOMMUNICATESECURELYANDTHUSENJOYAHUGEADVANTAGEINWORLDWARIITHEENIGMAMACHINEWASCONSIDEREDTOBESOSECURETHATEVENTHEMOSTTOPSECRETMESSAGESWEREENCIPHEREDONITSELECTRICALCIRCUITSENIGMAHASANELECTROMECHANICALROTORMECHANISMTHATSCRAMBLESTHELETTERSOFTHEALPHABETINTYPICALUSEONEPERSONENTERSTEXTONTHEENIGMASKEYBOARDANDANOTHERPERSONWRITESDOWNWHICHOFLIGHTSABOVETHEKEYBOARDLIGHTSUPATEACHKEYPRESSIFPLAINTEXTISENTEREDTHELITUPLETTERSARETHEENCODEDCIPHERTEXTENTERINGCIPHERTEXTTRANSFORMSITBACKINTOREADABLEPLAINTEXTTHEROTORMECHANISMCHANGESTHEELECTRICALCONNECTIONSBETWEENTHEKEYSANDTHELIGHTSWITHEACHKEYPRESSTHESECURITYOFTHESYSTEMDEPENDSONASETOFMACHINESETTINGSTHATWEREGENERALLYCHANGEDDAILYDURINGTHEWARBASEDONSECRETKEYLISTSDISTRIBUTEDINADVANCEANDONOTHERSETTINGSTHATWERECHANGEDFOREACHMESSAGETHERECEIVINGSTATIONHASTOKNOWANDUSETHEEXACTSETTINGSEMPLOYEDBYTHETRANSMITTINGSTATIONTOSUCCESSFULLYDECRYPTAMESSAGEWHILEGERMANYINTRODUCEDASERIESOFIMPROVEMENTSTOENIGMAOVERTHEYEARSANDTHESEHAMPEREDDECRYPTIONEFFORTSTOVARYINGDEGREESTHEYDIDNOTPREVENTPOLANDFROMCRACKINGTHEMACHINEPRIORTOTHEWARENABLINGTHEALLIESTOEXPLOITENIGMAENCIPHEREDMESSAGESASAMAJORSOURCEOFINTELLIGENCEMANYCOMMENTATORSSAYTHEFLOWOFULTRACOMMUNICATIONSINTELLIGENCEFROMTHEDECRYPTIONOFENIGMALORENZANDOTHERCIPHERSSHORTENEDTHEWARSUBSTANTIALLYANDMAYEVENHAVEALTEREDITSOUTCOME";
+
+int main(int argc, void *argv)
 {
+    size_t working_text_len = strlen(origin_text);
+    uint8_t *working_text = (uint8_t *)malloc(working_text_len);
+    if (working_text == NULL)
+    {
+        return 0;
+    }
+    for(int i=0;i!=strlen(origin_text);i++)
+    {
+        working_text[i] = origin_text[i] - 'A';
+    }
+
     enigma_t enigma;
     init_enigma(&enigma);
-    uint8_t selected_rotors[3] = {0,1,2};
-    uint8_t rotor_positions[3] = {0,0,0};
-    set_enigma_key_direct(&enigma,selected_rotors,
-                        rotor_positions,NULL,0);
-    char test_phrase[] = "AAAAAAAAAA";
-    printf("%s\n",test_phrase);
-    enigma_encrypt_decrypt(&enigma,test_phrase);
-    printf("%s\n",test_phrase);
-    set_enigma_key_direct(&enigma,selected_rotors,
-                        rotor_positions,NULL,0);
-    enigma_encrypt_decrypt(&enigma,test_phrase);
-    printf("%s\n",test_phrase);
+
+    set_enigma_key(&enigma, "123", "AAA", "AZ,CH,ET,RL,OI,UP");
+    char verify_text[] = "AAAAAAAAAA";
+    enigma_encrypt_decrypt(&enigma,verify_text);
+    printf("PEZJYGGKHD %s\n",verify_text);
+    
+    set_enigma_key(&enigma, "123", "AAA", "AZ,CH,ET,RL,OI,UP");
+    int repeat = 200000;
+    struct timeval start, stop;
+    gettimeofday(&start, NULL);
+    for (int i = 0; i != repeat; i++)
+    {
+        enigma_encrypt_decrypt_direct(&enigma, working_text,working_text_len);
+    }
+    gettimeofday(&stop, NULL);
+    uint64_t time_us = stop.tv_sec * 1000000 + stop.tv_usec - start.tv_sec * 1000000 - start.tv_usec;
+    printf("Time:  %ld us\n", time_us);
+    printf("Speed: %d cps\n", (int)(1000000.0 * (double)repeat * (double)working_text_len / ((double)time_us)));
+
+    free(working_text);
     return 0;
 }

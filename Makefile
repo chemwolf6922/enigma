@@ -1,6 +1,6 @@
 CC=gcc
 
-CFLAGS=-g
+CFLAGS=-O3
 
 LDFLAGS=
 
