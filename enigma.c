@@ -152,6 +152,39 @@ int set_enigma_key_direct(enigma_t *enigma,
     return ret;
 }
 
+int set_enigma_key_from_save(enigma_t* enigma,enigma_key_t* key)
+{
+    for (int i = 0; i != 3; i++)
+    {
+        if (key->rotor_num[i] >= sizeof((*enigma).rotors) / sizeof(rotor_t))
+        {
+            return -1;
+        }
+        enigma->selected_rotor_num[i] = key->rotor_num[i];
+        if (key->rotor_offset[i] >= 26)
+        {
+            return -1;
+        }
+        enigma->rotors[enigma->selected_rotor_num[i]].buf_offset = key->rotor_offset[i] * 26;
+    }
+    memcpy(enigma->plug_board.key_map,key->plug_board.key_map,26);
+    return 0;
+}
+
+/*
+    get the current setting (offset will change if encryption happend)
+*/
+int get_enigma_key(enigma_t* enigma,enigma_key_t* key)
+{
+    memcpy(key->plug_board.key_map,enigma->plug_board.key_map,26);
+    for(int i=0;i!=3;i++)
+    {
+        key->rotor_num[i] = enigma->selected_rotor_num[i];
+        key->rotor_offset[i] = enigma->rotors[enigma->selected_rotor_num[i]].buf_offset / 26;
+    }
+    return 0;
+}
+
 int set_enigma_key(enigma_t *enigma,
                    char *selected_rotors,
                    char *rotor_positions,

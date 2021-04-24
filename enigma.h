@@ -33,6 +33,12 @@ typedef struct{
     int selected_rotor_num[3];
 }enigma_t;
 
+typedef struct{
+    int rotor_num[3];
+    int rotor_offset[3];
+    plug_board_t plug_board;
+}enigma_key_t;
+
 int init_enigma(enigma_t* enigma);
 int set_enigma_key(enigma_t* enigma,
                     char* selected_rotors,
@@ -43,6 +49,8 @@ int set_enigma_key_direct(enigma_t* enigma,
                             uint8_t* rotor_positions,
                             wire_t* plug_board_config,
                             int plug_board_config_len);
+int set_enigma_key_from_save(enigma_t* enigma,enigma_key_t* key);
+int get_enigma_key(enigma_t* enigma,enigma_key_t* key);
 int enigma_encrypt_decrypt(enigma_t* enigma,char* content);
 void enigma_encrypt_decrypt_direct(enigma_t* enigma,uint8_t* content_code,int len);
 
