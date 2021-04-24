@@ -5,15 +5,6 @@
 
 uint32_t offset_lu[26 * 26];
 
-void dump_num(void *src, int len)
-{
-    for (int i = 0; i != len; i++)
-    {
-        printf("%02d ", *(uint8_t *)(src + i));
-    }
-    printf("\n");
-}
-
 int init_rotor(rotor_t *rotor, char *wiring, char turn_over_key)
 {
     if (strlen(wiring) != 26)

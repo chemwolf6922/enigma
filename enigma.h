@@ -34,8 +34,8 @@ typedef struct{
 }enigma_t;
 
 typedef struct{
-    int rotor_num[3];
-    int rotor_offset[3];
+    uint8_t rotor_num[3];
+    uint8_t rotor_offset[3];
     plug_board_t plug_board;
 }enigma_key_t;
 
