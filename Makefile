@@ -1,16 +1,15 @@
 CC=gcc
-
-CFLAGS=-O3
-
+CFLAGS=-O3 -MMD -MP
 LDFLAGS=
+
+SRCS=main.c enigma.c
 
 all:app
 
-%.o:%.c
-	$(CC) $(CFLAGS) -o $@ -c $<
-
-app:main.o enigma.o
+app:$(SRCS:.c=.o)
 	$(CC) $(LDFLAGS) -o $@ $^
 
+-include $(SRCS:.c=.d)
+
 clean:
-	rm -f app *.o
+	rm -f app *.o *.d
